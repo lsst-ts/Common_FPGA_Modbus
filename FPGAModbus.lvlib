@@ -5,6 +5,7 @@
 	<Property Name="NI.Lib.Version" Type="Str">1.0.0.0</Property>
 	<Property Name="NI.LV.All.SourceOnly" Type="Bool">false</Property>
 	<Item Name="DataTypes" Type="Folder">
+		<Item Name="ModbusCRCSettings.ctl" Type="VI" URL="../DataTypes/ModbusCRCSettings.ctl"/>
 		<Item Name="ModbusPortSettings.ctl" Type="VI" URL="../DataTypes/ModbusPortSettings.ctl"/>
 		<Item Name="ModbusRxLoopData.ctl" Type="VI" URL="../DataTypes/ModbusRxLoopData.ctl"/>
 		<Item Name="ModbusRxStates.ctl" Type="VI" URL="../DataTypes/ModbusRxStates.ctl"/>
@@ -15,12 +16,11 @@
 	</Item>
 	<Item Name="Support" Type="Folder">
 		<Item Name="ModbusIRQTriggerLoop.vi" Type="VI" URL="../Support/ModbusIRQTriggerLoop.vi"/>
-		<Item Name="ModbusRxHealthAndStatusUpdateLoop.vi" Type="VI" URL="../Support/ModbusRxHealthAndStatusUpdateLoop.vi"/>
 		<Item Name="ModbusRxLoop.vi" Type="VI" URL="../Support/ModbusRxLoop.vi"/>
 		<Item Name="ModbusTxFIFOUpdateLoop.vi" Type="VI" URL="../Support/ModbusTxFIFOUpdateLoop.vi"/>
-		<Item Name="ModbusTxHealthAndStatusUpdateLoop.vi" Type="VI" URL="../Support/ModbusTxHealthAndStatusUpdateLoop.vi"/>
 		<Item Name="ModbusTxLoop.vi" Type="VI" URL="../Support/ModbusTxLoop.vi"/>
 	</Item>
+	<Item Name="ModbusCRCCalculator.vi" Type="VI" URL="../ModbusCRCCalculator.vi"/>
 	<Item Name="ModbusPort.vi" Type="VI" URL="../ModbusPort.vi"/>
 	<Item Name="README.txt" Type="Document" URL="../README.txt"/>
 </Library>
