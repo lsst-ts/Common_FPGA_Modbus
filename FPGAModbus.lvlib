@@ -5,7 +5,6 @@
 	<Property Name="NI.Lib.Version" Type="Str">1.0.0.0</Property>
 	<Property Name="NI.LV.All.SourceOnly" Type="Bool">false</Property>
 	<Item Name="DataTypes" Type="Folder">
-		<Item Name="ModbusCRCSettings.ctl" Type="VI" URL="../DataTypes/ModbusCRCSettings.ctl"/>
 		<Item Name="ModbusPortSettings.ctl" Type="VI" URL="../DataTypes/ModbusPortSettings.ctl"/>
 		<Item Name="ModbusRxLoopData.ctl" Type="VI" URL="../DataTypes/ModbusRxLoopData.ctl"/>
 		<Item Name="ModbusRxStates.ctl" Type="VI" URL="../DataTypes/ModbusRxStates.ctl"/>
