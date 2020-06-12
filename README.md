@@ -1,18 +1,22 @@
 # Modbus communication library
 
-This library provides functions to send and receive messages over serial line
-to/from other devices. Runs only on an FPGA(Field Programmable Gate Array). Used mainly to communicate on a
-master-slave bus, usually with indexable daisy chained modules.
+This library provides functions for serial communication. Runs only on an
+FPGA (Field Programmable Gate Array). Used mainly to communicate on a
+coordinator-worker bus, usually with indexable daisy chained workers.
+[Modbus](http://modbus.org) or other protocol can be used.
 
-**[CRC16](https://crccalc.com)  checksum calculation is not included**. The calling process should calculate and
-include the transformed checksum as data payload, and check received checksum.
+:warning: **[CRC16](https://crccalc.com) checksum calculation is not
+included**. The calling process should calculate and include the transformed
+checksum as data payload, and check received data CRC16 (or any other CRC).
 
 ## Physical interface
 
-Serial interface is constructed from two DIO(Discrete Input/Output) pins. Obviously one pin has to be
-configured for receiving the data and the other for transmitting the data. Usually the
-NI-9401 module, providing a total of 8 DIOs, with 4 input and 4 output ports,
-is used.
+A serial interface is constructed from two DIO (Discrete Input/Output) pins.
+One pin has to be configured for input (receiving), the other for output
+(transmitting).  This serial communication is often implemented using a
+[NI-9401 Digital Module](https://www.ni.com/en-us/support/model.ni-9401.html).
+This provides 8 digital I/O pins, which can be used as 4 input and 4 output
+ports.
 
 ## LabView/Host interface
 
@@ -26,9 +30,11 @@ and internal transmitting queue. Three boolean registers are needed - IRQ,
 WaitForIRQ, and ModbusTrigger (starting physical write after receiving 0x8000
 "Wait for trigger command").
 
-FIFOs needs to be set to "never arbitrate" on the inside module - write for
-outputs/receiving, read for inputs/transmitting. The other side should be set
-to never arbitrate as well, but that isn't required.
+Each FIFO should be configured to "never arbitrate" for operation used inside
+the library. Never arbitrate on write should be set for output/receiving (with
+write method called inside the library). Never arbitrate on read should be set
+for input/transmission (with read method called inside the library). The best
+is to leave both write and read as "never arbitrate".
 
 For each use:
 
@@ -45,27 +51,29 @@ For each use:
 5. Create a boolean register for IRQ control and "WaitForRXFrame". Specify
    never arbitrate for write.
 
-6. Generate a boolean register for the software controlled trigger. Specify
-   never arbitrate for write. You can use a single trigger for controlling
-   multiple ports so this is an optional step if a register has already been
-   generated.
+6. Create a boolean register for the software controlled trigger. Specify never
+   arbitrate for write. You can use a single trigger for controlling multiple
+   ports so this is an optional step if a register has already been generated.
 
 7. Create a FIFO for Tx timestamps. Specify a data type of U64. Specify never
    arbitrate for write.
 
-8. Drop the FPGAModbus/ModbusPort.vi onto your main VI. Setup the port settings
-   using the resources defined above. Sets base address (shall be multiply of
-   6) and IRQ (ordinals).  Review the comments in ModbusPort.vi for more
-   information.
+8. Drop the FPGAModbus/ModbusPort.vi onto your main VI.
+
+9. Setup the ModbusPort settings using the resources defined above.
+
+10. Sets base address (shall be multiply of 6) and IRQ (ordinals).
+
+11. Review the comments in ModbusPort.vi for more information.
 
 ### Optional
 
 To copy health and status data FIFOs into a single FIFO:
 
-9. Drop the FPGAHealthAndStatus/HealthAndStatusFIFOCopy.vi. Set the internal
+12. Drop the FPGAHealthAndStatus/HealthAndStatusFIFOCopy.vi. Set the internal
    health and status FIFO. Set the source as the FIFO generated in step 2.
 
-10. Drop the FPGAHealthAndStatus/HealthAndStatusFIFOCopy.vi. Set the internal
+13. Drop the FPGAHealthAndStatus/HealthAndStatusFIFOCopy.vi. Set the internal
     health and status FIFO. Set the source as the FIFO generated in step 5.
 
 # How it works
@@ -87,13 +95,14 @@ instruction. Nibbles 2-4 are used for data.
 
 Data from transmitting FIFO are parsed into instructions and data, and placed
 into internal FIFO. Instructions are then processed from the internal FIFO -
-see below for instructions types. Proper signal (frame start, start bit, data,
-stop bit, frame delay) are generated.
+see below for instructions types. Proper signal (including frame start, start
+bit, data, stop bit, frame delay) is generated.
 
 Received line is checked for frame start. Bytes are then stored into receiving
 FIFO. Frame end is detected on line silence. IRQ is raised when frame is
-received. As the expected use is in a master-slave communication, IRQ doesn't
-have to be handled outside ModbusPort subVI. Data is written into the receiving
+received. As the expected use is in a coordinator-worker communication, IRQ
+doesn't have to be handled outside ModbusPort subVI. Data is written into the
+receiving
 FIFO.
 
 CRC16 isn't checked on received FIFO and the CRC16 (if part of the
@@ -106,15 +115,15 @@ in received response (Rx FIFO).
 
  OpCode | Description
  ------ | -----------
- 0x1    | sends data. Data are in bits 9-0, and includes start and stop bits. The least significant bit (bit 0) is a start bit, must be 0. 8 data bits follow. Bit 9 is stop  bit, must be 1. To write 8 bit data, shift left (with 0 fill) by 1, or result with 0x0200
- 0x2    | End of frame, delay in ticks (data). Should be 0xda, resulting in 0x20da written
- 0x3    | delay for data ticks
- 0x4    | delay for data microseconds
- 0x5    | delay for data milliseconds
+ 0x1    | sends data. *Data* are in bits 9-0, and includes start and stop bits. The least significant bit (bit 0) is a start bit, must be 0. 8 data bits follow. Bit 9 is stop  bit, must be 1. To write 8 bit data, shift left (with 0 fill) by 1, or result with 0x0200
+ 0x2    | end of frame, delay in ticks (data). Should be 0xda *(/44 =~ 5)*, resulting in 0x20da written
+ 0x3    | delay for *data* ticks
+ 0x4    | delay for *data* microseconds
+ 0x5    | delay for *data* milliseconds
  0x6    | wait for a received frame. Data = timeout in us (microseconds, 1/1M of a second, 40 ticks). Recommended value is 0x3e8 = 1ms.
  0x7    | triggers IRQ
  0x8    | wait for trigger (ModbusTrigger == true)
- 0x9    | received data (on received FIFO)
+ 0x9    | received *data* (on received FIFO)
  0xA    | received end of frame (on received FIFO)
 
 For synchronization with the other modbus ports, a frame should be prefixed
@@ -130,23 +139,25 @@ payload is:
 0x81 0x11
 ```
 
-| Serb. | Func. | CRC   |
-| Addr  | Code  |       |
-| ----- | ----- | ----- |
-| 81    | 11    | A1 EC |
+with CRC:
+
+| Serv. Addr | Func. Code | CRC   |
+|------------|------------|-------|
+| 81         | 11         | A1 EC |
 
 *[CRC16/MODBUS](https://crccalc.com) of 0x81 0x11 = 0xeca1, transmitted as low
 endian (hence 0xa1 0xec, right shifted by 1 = 0x142 0x1d8; with stop bit =
 0x342 0x3d8).*
 
-the following has to be commanded:
+Send the following commands:
 
 * set WaitForTrigger
 * write payload and CRC
 * wait 1ms for reply
 * signal TriggerIRQ
 
-For that, the following 2 bytes numbers (in hex) shall be written into Tx FIFO:
+To send these commands write the following 2-byte (U16) numbers into the
+transmitting FIFO.
 
 ```
 0x8000 0x1302 0x1222 0x1342 0x13d8 0x20da 0x63e8 0x7000
@@ -154,18 +165,18 @@ For that, the following 2 bytes numbers (in hex) shall be written into Tx FIFO:
 
 Assuming the device returns the following data:
 
-| Serb. | Func. | Length | Unique ID         | ILC     | Net. | ILC      | Net.Node | Maj. | Min. | Firmware    | CRC   |
-| Addr  | Code  |        |                   | AppType | Node | Sel.Opt. | OPtions  | Rev. | Rev. | Name        |       |
-| ----- | ----- | ------ | ----------------- | ------  | ---- | -------- | -------- | ---- | ---- | ----------- | ----- |
-| 81    | 11    |   10   | 12 34 56 78 90 AA |   FF    |   BB |   CC     |   DD     |   EE |   11 | 53 74 61 72 | A7 9F |
+| Serv. Addr | Func. Code | Length | Unique ID         | ILC AppType | Net. Node | ILC Sel.Opt. | Net.Node Options | Maj. Rev. | Min. Rev. | Firmware Name    | CRC   |
+| ---------- | ---------- | ------ | ----------------- | ----------  | --------- | ------------ | ---------------- | --------- | --------- | ---------------- | ----- |
+| 81         | 11         |   10   | 12 34 56 78 90 AA |   FF        |        BB |   CC         |   DD             |        EE |        11 | 53 74 61 72      | A7 9F |
 
-this shall be read from receiving FIFO:
+this shall be read from the receiving FIFO:
 
 ```
 0x9302 0x9222 0x9220 0x9224 0x9268 0x92ac 0x92f0 0x9320 0x9354 0x93fe 0x9398 0x93ba 0x93dc 0x9222 0x92a6 0x92e8 0x92c2 0x92e4 0x934e 0x933e 0xA000
 ```
 
-**It's reader's responsibility to check CRC16.**
+:warning: It is reader's responsibility to check CRC16. No checking is done
+inside the library.
 
 # Health and Status telemetry
 
@@ -176,7 +187,9 @@ library](https://github.com/lsst-ts/Common_FPGA_HealthAndStatus/) for details.
 The following offsets from the base address specified in ModbusPort settings
 are populated:
 
-| **0** | flags. See below for details                                            |
+| Offset| Description                                                             |
+|-------|-------------------------------------------------------------------------|
+| **0** | Error flags. See below for details                                      |
 | **1** | transmitted (Tx) byte count                                             |
 | **2** | transmitted (Tx) frame count                                            |
 | **3** | received (Rx) byte count                                                |
