@@ -1,35 +1,34 @@
 # Modbus communication library
 
 This library provides functions to send and receive messages over serial line
-to/from other devices. Runs only on FPGA. Used mainly to communicate on a
-master-slave bus, usually with daisy chained addressing of slave modules.
+to/from other devices. Runs only on an FPGA(Field Programmable Gate Array). Used mainly to communicate on a
+master-slave bus, usually with indexable daisy chained modules.
 
-**[CRC16](https://crccalc.com) calculation is not included**. Calling process should calculate and
-include proper CRC16 as data payload, and check received data CRC16 (or any
-other CRC).
+**[CRC16](https://crccalc.com)  checksum calculation is not included**. The calling process should calculate and
+include the transformed checksum as data payload, and check received checksum.
 
 ## Physical interface
 
-Serial interface is constructed from two DIO pins. Obviously one pin has to be
-configured for input (receiving), the other for output (transmitting). Usually
-NI-9401 module, providing total 8 DIOs, with split for 4 in and 4 output ports,
+Serial interface is constructed from two DIO(Discrete Input/Output) pins. Obviously one pin has to be
+configured for receiving the data and the other for transmitting the data. Usually the
+NI-9401 module, providing a total of 8 DIOs, with 4 input and 4 output ports,
 is used.
 
 ## LabView/Host interface
 
 [Common_FPGA_HealthAndStatus
 library](https://github.com/lsst-ts/Common_FPGA_HealthAndStatus/) is used for
-health and status FIFO. That provides datatype for the FIFO.
+health and status FIFO(First In First Out). That provides datatype for the FIFO.
 
 For each use, one input and one output DIO are needed. Six FIFOs has to be
-provided - transmitting, receiving, timestamps, healt & status for Rx and Tx,
+provided - transmitting, receiving, timestamps, health & status for Rx and Tx,
 and internal transmitting queue. Three boolean registers are needed - IRQ,
-WaitForIRQ, and ModbusTrigger (starting physical write after receving 0x8000
+WaitForIRQ, and ModbusTrigger (starting physical write after receiving 0x8000
 "Wait for trigger command").
 
-FIFOs needs to be "never arbitrate" on side used inside module - write for
+FIFOs needs to be set to "never arbitrate" on the inside module - write for
 outputs/receiving, read for inputs/transmitting. The other side should be set
-to never arbitrate as well, but that's isn't required.
+to never arbitrate as well, but that isn't required.
 
 For each use:
 
@@ -69,9 +68,9 @@ To copy health and status data FIFOs into a single FIFO:
 10. Drop the FPGAHealthAndStatus/HealthAndStatusFIFOCopy.vi. Set the internal
     health and status FIFO. Set the source as the FIFO generated in step 5.
 
-# Theory of operation
+# How it works
 
-FIFOs are used for what they are best suited - to provide a channel between
+FIFOs are used to provide a channel between
 variable speeds write and read ends. Usually one end of the FIFO is inside
 [SCTL](https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z000000P8sWSAS&l=en-US).
 SCTL are used to grant execution of the commands inside FPGA in a single tick.
@@ -94,7 +93,7 @@ stop bit, frame delay) are generated.
 Received line is checked for frame start. Bytes are then stored into receiving
 FIFO. Frame end is detected on line silence. IRQ is raised when frame is
 received. As the expected use is in a master-slave communication, IRQ doesn't
-have to be handled outside ModbusPort subVI. Data are writen into receiving
+have to be handled outside ModbusPort subVI. Data is written into the receiving
 FIFO.
 
 CRC16 isn't checked on received FIFO and the CRC16 (if part of the
