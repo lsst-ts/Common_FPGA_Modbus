@@ -120,9 +120,10 @@ in received response (Rx FIFO).
  0x3    | push TimestampRegister to Tx timestamps FIFO
  0x4    | delay for *data* microseconds
  0x5    | delay for *data* milliseconds
- 0x6    | wait for a received frame. Data = timeout in us (microseconds, 1/1M of a second, 40 ticks). Recommended value is 0x3e8 = 1ms.
+ 0x6    | wait for a received frame. Data = timeout in us (microseconds, 1/1M of a second, 40 ticks). Recommended value is 0x3e8 = 1ms
  0x7    | triggers IRQ
  0x8    | wait for trigger (ModbusTrigger == true)
+ 0x6    | long wait for a received frame. Data = timeout in ms (milliseconds, 1/1K of a second, 40000 ticks)
  0x9    | received *data* (on received FIFO)
  0xA    | received end of frame (on received FIFO)
  0xB    | timestamp U8; 8 0xB are expected, contain low endian timestamp from FPGA clocks
