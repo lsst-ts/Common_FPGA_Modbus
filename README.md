@@ -117,7 +117,7 @@ in received response (Rx FIFO).
  ------ | -----------
  0x1    | sends data. *Data* are in bits 9-0, and includes start and stop bits. The least significant bit (bit 0) is a start bit, must be 0. 8 data bits follow. Bit 9 is stop  bit, must be 1. To write 8 bit data, shift left (with 0 fill) by 1, or result with 0x0200
  0x2    | end of frame, delay in ticks (data). Should be 0xda *(/44 =~ 5)*, resulting in 0x20da written
- 0x3    | delay for *data* ticks
+ 0x3    | push TimestampRegister to Tx timestamps FIFO
  0x4    | delay for *data* microseconds
  0x5    | delay for *data* milliseconds
  0x6    | wait for a received frame. Data = timeout in us (microseconds, 1/1M of a second, 40 ticks). Recommended value is 0x3e8 = 1ms.
@@ -125,10 +125,18 @@ in received response (Rx FIFO).
  0x8    | wait for trigger (ModbusTrigger == true)
  0x9    | received *data* (on received FIFO)
  0xA    | received end of frame (on received FIFO)
+ 0xB    | timestamp U8; 8 0xB are expected, contain low endian timestamp from FPGA clocks
 
 For synchronization with the other modbus ports, a frame should be prefixed
 with 0x8 command. Data wouldn't be transmitted before ModbusTrigger == true.
 ModbusTrigger shall be turned to false by process/subVi calling 0x8 command.
+
+## Timestamps
+
+Timestamps are taken from the TimestampRegister parameter. It's responsibility
+of calling Vi to set and update the register. See
+[Timestamp.vi](https://github.com/lsst-ts/ts_M1M3SupportFPGA/blob/master/src/Timestamp/Timestamp.vi)
+for possible implementation.
 
 ## Example
 
@@ -152,7 +160,8 @@ endian (hence 0xa1 0xec, right shifted by 1 = 0x142 0x1d8; with stop bit =
 Send the following commands:
 
 * set WaitForTrigger
-* write payload and CRC
+* push current timestamp to Tx timestamp FIFO; timestamp will be pushed after trigger is released
+* write payload, CRC and frame end
 * wait 1ms for reply
 * signal TriggerIRQ
 
@@ -160,7 +169,7 @@ To send these commands write the following 2-byte (U16) numbers into the
 transmitting FIFO.
 
 ```
-0x8000 0x1302 0x1222 0x1342 0x13d8 0x20da 0x63e8 0x7000
+0x8000 0x3000 0x1302 0x1222 0x1342 0x13d8 0x20da 0x63e8 0x7000
 ```
 
 Assuming the device returns the following data:
@@ -172,8 +181,23 @@ Assuming the device returns the following data:
 this shall be read from the receiving FIFO:
 
 ```
-0x9302 0x9222 0x9220 0x9224 0x9268 0x92ac 0x92f0 0x9320 0x9354 0x93fe 0x9398 0x93ba 0x93dc 0x9222 0x92a6 0x92e8 0x92c2 0x92e4 0x934e 0x933e 0xA000
+0x9302 0x9222 0x9220 0x9224 0x9268 0x92ac 0x92f0 0x9320 0x9354 0x93fe 0x9398 0x93ba 0x93dc 0x9222 0x92a6 0x92e8 0x92c2 0x92e4 
+0x934e 0x933e
+0xB077 0xB066 0xB055 0xB044 0xB033 0xB022 0xB011 0xB000
+0xA000
 ```
+
+Where:
+
+* response bytes (0x9) payload, with start/stop bites (check for
+  (response _(U16)_ and _(bitwise)_ 0x0201) = 0x0200, right shift by 1 and mask
+  with 0xFF to get data)
+* last two 0x9... are CRC16 bytes (for the payload), see above for shifting
+* following 0xB... are 8 16 bit numbers of low endian 64 bit timestamp.
+  Bitwise with 0xFF to get the value. Timestamp is taken from TimeStampRegister
+  when failing edge is detected (start of receiving the data). The example
+  above depicts number 0x0011223344556677 = dec 4822678189205111
+* last 0xA000 signal frame ends
 
 :warning: It is reader's responsibility to check CRC16. No checking is done
 inside the library.
